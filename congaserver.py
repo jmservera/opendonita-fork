@@ -148,9 +148,11 @@ class HTTPConnection(BaseServer):
                         length = len(page)
                 continue
             if self._URI == page:
+                print(f'{self._URI}')
                 registered_pages[page](self)
                 return
         if jump is not None:
+            print(f'{self._URI}')
             registered_pages[jump](self)
             return
         self.send_answer(404, "NOT FOUND")
