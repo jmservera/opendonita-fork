@@ -6,6 +6,8 @@ import sys
 import datetime
 from urllib.parse import parse_qs
 import json
+import struct
+import random
 
 robot_data = {}
 
@@ -28,8 +30,13 @@ def robot_get_token(server_object):
     robot_data['nonce'] = data['nonce_str']
 
     send_robot_header(server_object)
+    token = ''
+    for a in range(32):
+        v = random.randint(0,9)
+        token += chr(48 + v)
     data = '{"msg":"ok","result":"0","data":{"appKey":"'+robot_data['appKey']+'","deviceNo":"'+robot_data['deviceId']+'","token":"'
-    data += 'j0PoVqC988Vyk89I3562951732429679'
+    #data += 'j0PoVqC988Vyk89I3562951732429679'
+    data += token
     data += '"},"version":"1.0.0"}'
     server_object.send_chunked(data)
     server_object.close()
@@ -53,6 +60,18 @@ registered_pages = {
     '/baole-web/common/getToken.do': robot_get_token,
     '/baole-web/common/*': robot_global
 }
+
+
+class RobotManager(object):
+    def __init__(self):
+        self._robots = {} # contains Robot objects, one per physical robot, identified by the DeviceId
+
+    def get_robot(self, deviceId):
+        if deviceId not in self._robots:
+            self._robots[deviceId] = Robot()
+        return self._robots[deviceId]
+
+robotManager = RobotManager()
 
 class BaseServer(object):
     def __init__(self, sock = None):
@@ -203,11 +222,116 @@ class HTTPServer(BaseServer):
         return HTTPConnection(newsock, address)
 
 
+class RobotServer(BaseServer):
+    def __init__(self, port = 20008):
+        super().__init__()
+        self._sock.bind(('', port))
+        self._sock.listen(10)
+
+    def data_available(self):
+        # there is a new connection
+        print("Robot connected")
+        newsock, address = self._sock.accept()
+        return RobotConnection(newsock, address)
+
+
+class RobotConnection(BaseServer):
+    def __init__(self, sock, address):
+        super().__init__(sock)
+        self._address = address
+        self._robot = None
+        self._packet_queue = []
+        self._packet_id = 1
+        self._token = None
+        self._deviceId = None
+        self._appKey = None
+        self._authCode = None
+
+    def close(self):
+        print("Robot disconnected")
+        super().close()
+        if self._robot is not None:
+            self._robot.disconnected()
+        self._robot = None
+
+    def new_data(self):
+        global robotManager
+
+        if len(self._data) < 20:
+            return
+        header = struct.unpack("<LLLLL", self._data[0:20])
+        if len(self._data) < header[0]:
+            return
+        payload = self._data[20:header[0]]
+        self._data = self._data[header[0]:]
+
+        # process the packet
+        # PING
+        if self._check_header(header, 0x14, 0x00c80100, 0x01,0x03e7):
+            print("Pong")
+            self._send_packet(0xc80111, 0x01, header[3], 0x03e7)
+            return
+        # Identification
+        if self._check_header(header, None, 0x0010, 0x0001, 0x00):
+            print("Identification")
+            payload = json.loads(payload)
+            self._token = payload['value']['token']
+            self._deviceId = payload['value']['deviceId']
+            self._appKey = payload['value']['appKey']
+            self._authCode = payload['value']['authCode']
+            self._robot = robotManager.get_robot(self._deviceId)
+            now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            self._send_packet(0x00c80011, 0x01, header[3], 0x00, '{"msg":"login succeed","result":0,"version":"1.0","time":"'+now+'"}')
+            return
+        # Status
+        if self._check_header(header, None, 0x0018, 0x0001, 0x00):
+            print("Status")
+            self._send_packet(0x00c80019, 0x01, header[3], 0x01, '{"msg":"OK","result":0,"version":"1.0"}')
+            return
+        print("Unknown packet")
+        print(header)
+        print(payload)
+
+
+    def _check_header(self, header, value0, value1, value2, value4):
+        if (value0 is not None) and (value0 != header[0]):
+            return False
+        if (value1 is not None) and (value1 != header[1]):
+            return False
+        if (value2 is not None) and (value2 != header[2]):
+            return False
+        if (value4 is not None) and (value4 != header[4]):
+            return False
+        return True
+
+    def _send_packet(self, value1, value2, packet_id, value3, data = b""):
+        if isinstance(data, str):
+            data = data.encode('latin1')
+        header = bytearray(struct.pack("<LLLLL", 20 + len(data), value1, value2, packet_id, value3))
+        self._sock.send(header + data)
+
+
+
+class Robot(object):
+    """ Manages each physical robot """
+    def __init__(self):
+        self._connection = None
+        self._status = "idle"
+
+    def connected(self, connection):
+        self._connection = connection
+
+    def disconnected(self):
+        self._connection = None
+
+
 class Multiplexer(object):
     def __init__(self, port = 80):
         self._socklist = []
         self._http_server = HTTPServer(port)
         self._add_socket(self._http_server)
+        self._robot_server = RobotServer()
+        self._add_socket(self._robot_server)
 
     def _add_socket(self, socket_class):
         if socket_class not in self._socklist:
