@@ -35,7 +35,6 @@ def robot_get_token(server_object):
         v = random.randint(0,9)
         token += chr(48 + v)
     data = '{"msg":"ok","result":"0","data":{"appKey":"'+robot_data['appKey']+'","deviceNo":"'+robot_data['deviceId']+'","token":"'
-    #data += 'j0PoVqC988Vyk89I3562951732429679'
     data += token
     data += '"},"version":"1.0.0"}'
     server_object.send_chunked(data)
@@ -55,10 +54,33 @@ def send_robot_header(server_object):
     server_object.add_header('Set-Cookie', 'SERVERID=2423aa26fbdf3112bc4aa0453e825ac8|1592686775|1592686775;Path=/')
 
 
+def robot_action(server_object):
+    robots = robotManager.get_robot_list()
+    uri = server_object.get_uri()
+    if uri == '/action/clean':
+        print("Action: clean")
+        for robot_id in robots:
+            robot = robotManager.get_robot(robot_id)
+            robot.clean()
+    elif uri == '/action/stop':
+        print("Action: stop")
+        for robot_id in robots:
+            robot = robotManager.get_robot(robot_id)
+            robot.stop()
+    elif uri == '/action/return':
+        print("Action: return")
+        for robot_id in robots:
+            robot = robotManager.get_robot(robot_id)
+            robot.return_base()
+    server_object.send_answer("OK\n", 200, "OK")
+    server_object.close()
+
+
 registered_pages = {
     '/baole-web/common/sumbitClearTime.do': robot_clear_time,
     '/baole-web/common/getToken.do': robot_get_token,
-    '/baole-web/common/*': robot_global
+    '/baole-web/common/*': robot_global,
+    '/action/*': robot_action
 }
 
 
@@ -70,6 +92,12 @@ class RobotManager(object):
         if deviceId not in self._robots:
             self._robots[deviceId] = Robot()
         return self._robots[deviceId]
+
+    def get_robot_list(self):
+        l = []
+        for a in self._robots:
+            l.append(a)
+        return l
 
 robotManager = RobotManager()
 
@@ -174,12 +202,14 @@ class HTTPConnection(BaseServer):
             print(f'{self._URI}')
             registered_pages[jump](self)
             return
-        self.send_answer(404, "NOT FOUND")
+        self.send_answer("", 404, "NOT FOUND")
 
     def add_header(self, name, value):
         self._headers_answer += (f'{name}: {value}\r\n').encode('utf8')
 
     def send_answer(self, data, error = 200, text = ''):
+        if isinstance(data, str):
+            data = data.encode('utf8')
         if not self._answer_sent:
             cmd = (f'{self.protocol} {error} {text}\r\n').encode('utf8')
             cmd += self._headers_answer
@@ -192,6 +222,9 @@ class HTTPConnection(BaseServer):
 
     def get_data(self):
         return self._data
+
+    def get_uri(self):
+        return self._URI
 
     def convert_data(self):
         if ('Content-Type' in self.headers):
@@ -206,8 +239,8 @@ class HTTPConnection(BaseServer):
 
     def send_chunked(self, text):
         chunk = f'{hex(len(text))[2:]}\r\n{text}\r\n'
-        self.send_answer(chunk.encode('utf8'))
-        self.send_answer('0\r\n\r\n'.encode('utf8'))
+        self.send_answer(chunk)
+        self.send_answer('0\r\n\r\n')
 
 
 class HTTPServer(BaseServer):
@@ -246,6 +279,77 @@ class RobotConnection(BaseServer):
         self._deviceId = None
         self._appKey = None
         self._authCode = None
+        self._deviceIP = None
+        self._devicePort = None
+        self._waiting_for_command = False
+
+    def timeout(self):
+        self._next_command()
+
+    def _next_command(self):
+        if self._waiting_for_command:
+            return
+        if len(self._packet_queue) == 0:
+            return
+        command = self._packet_queue.pop(0)
+        if command == "clean":
+            self.clean()
+            return
+        if command == "stop":
+            self.stop()
+            return
+        if command == "base":
+            self.return_base()
+
+    def clean(self):
+        if self._robot is None:
+            return
+        if self._waiting_for_command:
+            self._packet_queue.append("clean")
+            return
+        self._packet_id += 1
+        data = '{"cmd":0,"control":{"authCode":"'
+        data += self._authCode
+        data += '","deviceIp":"'
+        data += self._deviceIP
+        data += '","devicePort":"'
+        data += self._devicePort
+        data += '","targetId":"1","targetType":"3"},"seq":0,"value":{"transitCmd":"100"}}'
+        self._send_packet(0x00c800fa, 0x01090000, self._packet_id, 0x00, data)
+
+    def return_base(self):
+        if self._robot is None:
+            return
+        if self._waiting_for_command:
+            self._packet_queue.append("clean")
+            return
+        self._packet_id += 1
+        data = '{"cmd":0,"control":{"authCode":"'
+        data += self._authCode
+        data += '","deviceIp":"'
+        data += self._deviceIP
+        data += '","devicePort":"'
+        data += self._devicePort
+        data += '","targetId":"1","targetType":"3"},"seq":0,"value":{"transitCmd":"104"}}'
+        self._send_packet(0x00c800fa, 0x4cd60000, self._packet_id, 0x00, data)
+
+
+    def stop(self):
+        if self._robot is None:
+            return
+        if self._waiting_for_command:
+            self._packet_queue.append("stop")
+            return
+        self._packet_id += 1
+        data = '{"cmd":0,"control":{"authCode":"'
+        data += self._authCode
+        data += '","deviceIp":"'
+        data += self._deviceIP
+        data += '","devicePort":"'
+        data += self._devicePort
+        data += '","targetId":"1","targetType":"3"},"seq":0,"value":{"transitCmd":"102"}}'
+        self._send_packet(0x00c800fa, 0x01090000, self._packet_id, 0x00, data)
+
 
     def close(self):
         print("Robot disconnected")
@@ -279,7 +383,10 @@ class RobotConnection(BaseServer):
             self._deviceId = payload['value']['deviceId']
             self._appKey = payload['value']['appKey']
             self._authCode = payload['value']['authCode']
+            self._deviceIP = payload['value']['deviceIp']
+            self._devicePort = payload['value']['devicePort']
             self._robot = robotManager.get_robot(self._deviceId)
+            self._robot.connected(self)
             now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             self._send_packet(0x00c80011, 0x01, header[3], 0x00, '{"msg":"login succeed","result":0,"version":"1.0","time":"'+now+'"}')
             return
@@ -287,6 +394,14 @@ class RobotConnection(BaseServer):
         if self._check_header(header, None, 0x0018, 0x0001, 0x00):
             print("Status")
             self._send_packet(0x00c80019, 0x01, header[3], 0x01, '{"msg":"OK","result":0,"version":"1.0"}')
+            return
+        # ACK
+        if self._check_header(header, None, 0x000000fa, 0x0001, 0x00):
+            if header[3] == self._packet_id:
+                print("ACK fine")
+            else:
+                print("ACK error")
+            self._waiting_for_command = False
             return
         print("Unknown packet")
         print(header)
@@ -323,6 +438,30 @@ class Robot(object):
 
     def disconnected(self):
         self._connection = None
+
+    def get_status(self):
+        return self._status
+
+    def clean(self):
+        if self._connection is None:
+            print("No conectado")
+            return False
+        print("Lanzo clean")
+        self._connection.clean()
+
+    def stop(self):
+        if self._connection is None:
+            print("No conectado")
+            return False
+        print("Lanzo stop")
+        self._connection.stop()
+
+    def return_base(self):
+        if self._connection is None:
+            print("No conectado")
+            return False
+        print("Lanzo return")
+        self._connection.return_base()
 
 
 class Multiplexer(object):
