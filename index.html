@@ -1,0 +1,19 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Control de do&ntilde;ita</title>
+        <script type="text/javascript">
+            var xhttp = new XMLHttpRequest();
+			function command(uri) {
+                xhttp.open("GET", uri, true);
+                xhttp.send();
+            }
+		</script>
+    </head>
+    <body>
+        <h1>OpenDoñita</h1>
+        <p><input type="button" value="Limpiar" onclick="command('/action/clean');"></p>
+        <p><input type="button" value="Parar" onclick="command('/action/stop');"></p>
+        <p><input type="button" value="Regresar" onclick="command('/action/return');"></p>
+    </body>
+</html>

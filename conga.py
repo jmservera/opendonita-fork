@@ -122,6 +122,7 @@ def tomar_contenido(paquete):
     return paquete.payload.decode('latin1').replace('\r', '\\r').replace('\n','\\n\n    ')
 
 primero = True
+time_first = 0
 while True:
     paquete = pcap.next_pkt()
     if paquete is None:
@@ -129,6 +130,7 @@ while True:
     if primero:
         data_aspiradora_servidor.set_timedif(paquete.tiempo)
         data_servidor_aspiradora.set_timedif(paquete.tiempo)
+        time_first = paquete.tiempo
         primero = False
 
     if (paquete.src == tablet and paquete.dst == servidor) or (paquete.dst == tablet and paquete.src == servidor):
@@ -158,8 +160,10 @@ while True:
     if (paquete.dst == aspiradora and paquete.src == tablet):
         if paquete.src_port not in data_tablet_aspiradora:
             data_tablet_aspiradora[paquete.src_port] = SEQUENCE("t->a", paquete.src_port)
+            data_tablet_aspiradora[paquete.src_port].set_timedif(time_first)
         data_tablet_aspiradora[paquete.src_port].add_data(paquete)
     if (paquete.src == aspiradora and paquete.dst == tablet):
         if paquete.dst_port not in data_aspiradora_tablet:
             data_aspiradora_tablet[paquete.dst_port] = SEQUENCE("a->t", paquete.dst_port)
+            data_aspiradora_tablet[paquete.dst_port].set_timedif(time_first)
         data_aspiradora_tablet[paquete.dst_port].add_data(paquete)

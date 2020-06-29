@@ -76,11 +76,19 @@ def robot_action(server_object):
     server_object.close()
 
 
+def robot_control(server_object):
+    with open("index.html", "r") as page:
+        data = page.read()
+
+    server_object.send_answer(data, 200, "OK")
+    server_object.close()
+
 registered_pages = {
     '/baole-web/common/sumbitClearTime.do': robot_clear_time,
     '/baole-web/common/getToken.do': robot_get_token,
     '/baole-web/common/*': robot_global,
-    '/action/*': robot_action
+    '/action/*': robot_action,
+    '/': robot_control
 }
 
 
@@ -139,7 +147,12 @@ class BaseServer(object):
     def data_available(self):
         """ Called whenever there is data to be read in the socket.
             Overwrite only to detect when there are new connections """
-        data = self._sock.recv(65536)
+        try:
+            data = self._sock.recv(65536)
+        except:
+            self.close()
+            print("Connection closed")
+            return
         if len(data) > 0:
             self._data += data
             self.new_data()
