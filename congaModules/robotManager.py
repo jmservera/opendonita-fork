@@ -173,6 +173,7 @@ class Robot(object):
 
 
     def _resetBattery(self):
+        print("Reseting the battery")
         self._battery_changes_counter = 0
         self._connection.send_command('fan', {'speed': '0'})
         self._connection.send_command('watertank', {'speed': '0'})
