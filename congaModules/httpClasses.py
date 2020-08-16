@@ -17,9 +17,9 @@
 import json
 from urllib.parse import parse_qs
 
-from congaModules.baseServer import BaseServer
+from congaModules.baseServer import BaseTcpServer
 
-class HTTPServer(BaseServer):
+class HTTPServer(BaseTcpServer):
     def __init__(self):
         super().__init__()
         self._registered_pages = {}
@@ -28,19 +28,12 @@ class HTTPServer(BaseServer):
     def set_pages(self, registered_pages):
         self._registered_pages = registered_pages
 
-    def set_port(self, port = 80):
-        self._port = port
-
-    def added(self):
-        self._sock.bind(('', self._port))
-        self._sock.listen(10)
-
     def data_available(self):
         # there is a new connection
         newsock, address = self._sock.accept()
         return HTTPConnection(self._registered_pages, newsock, address)
 
-class HTTPConnection(BaseServer):
+class HTTPConnection(BaseTcpServer):
     """ Manages an specific connection to the HTTP server """
 
     def __init__(self, registered_pages, sock, address):

@@ -20,21 +20,14 @@ import json
 import struct
 
 from congaModules.robotManager import robot_manager
-from congaModules.baseServer import BaseServer
+from congaModules.baseServer import BaseTcpServer
 from congaModules.multiplexer import multiplexer
 from congaModules.observer import Signal
 
-class RobotServer(BaseServer):
+class RobotServer(BaseTcpServer):
     def __init__(self):
         super().__init__()
         self._port = 20008
-
-    def set_port(self, port = 20008):
-        self._port = port
-
-    def added(self):
-        self._sock.bind(('', self._port))
-        self._sock.listen(10)
 
     def data_available(self):
         # there is a new connection
@@ -43,7 +36,7 @@ class RobotServer(BaseServer):
         return RobotConnection(newsock, address)
 
 
-class RobotConnection(BaseServer):
+class RobotConnection(BaseTcpServer):
     def __init__(self, sock, address):
         super().__init__(sock)
         logging.info("Connected a new robot")

@@ -28,6 +28,8 @@ from congaModules.robotManager import robot_manager
 from congaModules.multiplexer import multiplexer
 from congaModules.httpClasses import http_server
 from congaModules.robotClasses import robot_server
+from congaModules.upnpServer import upnp_server
+from congaModules.upnpAnouncer import upnp_anouncer
 
 launch_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 html_path = os.path.join(launch_path, "html")
@@ -198,5 +200,7 @@ robot_server.set_port(port_bona)
 
 multiplexer.add_socket(http_server)
 multiplexer.add_socket(robot_server)
+multiplexer.add_socket(upnp_server)
+multiplexer.add_socket(upnp_anouncer)
 
 multiplexer.run()

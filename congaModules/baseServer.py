@@ -19,33 +19,22 @@ import logging
 from congaModules.observer import Signal
 
 class BaseServer(object):
-    def __init__(self, sock = None):
-        if sock is None:
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        else:
-            self._sock = sock
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    def __init__(self):
+        super().__init__()
         self._data = b""
-        self._closed = False
+        self._closed = True # by default can't be closed
         self.closedSignal = Signal("closed", self)
+        self._port = None
 
     def added(self):
         pass
 
+    def set_port(self, port):
+        """ Called to set the port. This marks it to be binded or not in added() """
+        self._port = port
+
     def fileno(self):
         return self._sock.fileno()
-
-    def new_data(self):
-        """ Called every time new data is added to self._data
-            Overwrite to process arriving data. The function must
-            remove from self._data the data already processed
-            @return False if there wasn't enough data for a full message; wait for more data
-                    True  if a full message was read and it should be called again because
-                          there can be another message in the buffer """
-
-        # here just remove the read data
-        self._data = b""
-        return False
 
     def close(self):
         """ Called when the socket is closed and the class will be destroyed """
@@ -60,6 +49,37 @@ class BaseServer(object):
                 pass
             self._closed = True
             self.closedSignal.emit()
+
+    def data_available(self):
+        pass
+
+
+class BaseTcpServer(BaseServer):
+    def __init__(self, sock = None):
+        super().__init__()
+        if sock is None:
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        else:
+            self._sock = sock
+        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self._closed = False # TCP sockets can be closed
+
+    def added(self):
+        if (self._port is not None):
+            self._sock.bind(('', self._port))
+            self._sock.listen(10)
+
+    def new_data(self):
+        """ Called every time new data is added to self._data
+            Overwrite to process arriving data. The function must
+            remove from self._data the data already processed
+            @return False if there wasn't enough data for a full message; wait for more data
+                    True  if a full message was read and it should be called again because
+                          there can be another message in the buffer """
+
+        # here just remove the read data
+        self._data = b""
+        return False
 
     def data_available(self):
         """ Called whenever there is data to be read in the socket.
@@ -80,3 +100,20 @@ class BaseServer(object):
             # socket closed
             self.close()
 
+
+class BaseUdpServer(BaseServer):
+    def __init__(self, sock = None):
+        super().__init__()
+        if sock is None:
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        else:
+            self._sock = sock
+        self._closed = False # TCP sockets can be closed
+        self._address = ''
+
+    def set_address(self, addr):
+        self._address = addr
+
+    def added(self):
+        if self._port is not None:
+            self._sock.bind((self._address, self._port))
