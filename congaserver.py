@@ -24,6 +24,7 @@ import random
 import os
 import logging
 import asyncio
+import netifaces
 
 from congaModules.robotManager import robot_manager
 from congaModules.httpClasses import http_server
@@ -140,6 +141,33 @@ def robot_list(server_object):
     server_object.send_answer_json_close(data)
 
 
+def use_server(server_object):
+    action = server_object.get_path()[8:]
+    if (action != 'internal') and (action != 'external'):
+        server_object.send_answer('{"error":5, "value":""}', 200, "")
+        server_object.close()
+        return
+
+    hosts = []
+    with open('/etc/hosts', 'r') as hostfile:
+        for line in hostfile.readlines():
+            line = line.strip()
+            if line.find("robotbona.com") == -1:
+                hosts.append(line)
+    with open('/etc/hosts', 'w') as hostfile:
+        for line in hosts:
+            hostfile.write(line + '\n')
+        if action == 'internal':
+            try:
+                ip = netifaces.ifaddresses('wlan0')[netifaces.AF_INET][0]['addr']
+                hostfile.write(f'{ip} bl-app-eu.robotbona.com\n')
+                hostfile.write(f'{ip} bl-im-eu.robotbona.com\n')
+            except:
+                pass
+    server_object.send_answer('{"error":0, "value":""}', 200, "")
+    server_object.close()
+
+
 def html_server(server_object):
     global html_path
 
@@ -182,6 +210,7 @@ registered_pages = {
     '/baole-web/common/*': robot_global,
     '/robot/list': robot_list,
     '/robot/*': robot_action,
+    '/server/*': use_server,
     '/*': html_server
 }
 
