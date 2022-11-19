@@ -187,7 +187,7 @@ values are 640.
 You can run this server as a Home Assistant add-on. Click on the link and add
 the repository to your Home Assistant instance.
 
-[![Open your Home Assistant instance and show the dashboard of a Supervisor add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?repository_url=https%3A%2F%2Fgithub.com%2Fjmservera%2Fjm-hassio-addons&addon=Open+Do%C3%B1ita)
+[![Open your Home Assistant instance and show the dashboard of a Supervisor add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=523be449_opendonita&repository_url=https%3A%2F%2Fgithub.com%2Fjmservera%2Fjm-hassio-addons)
 
 ## Author
 
