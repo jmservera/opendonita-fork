@@ -182,6 +182,13 @@ the new value. The new value is stored in permanent storage immediately. All val
 * **getMap**: returns a PNG picture with the current map. Accepts two parameters: *width* and *height* for the PNG size. The default
 values are 640.
 
+## Home Assistant Add-On
+
+You can run this server as a Home Assistant add-on. Click on the link and add
+the repository to your Home Assistant instance.
+
+[![Open your Home Assistant instance and show the dashboard of a Supervisor add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?repository_url=https%3A%2F%2Fgithub.com%2Fjmservera%2Fjm-hassio-addons&addon=Open+Do%C3%B1ita)
+
 ## Author
 
 Sergio Costas  
