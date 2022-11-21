@@ -19,4 +19,4 @@ ports:
   20008/tcp: 20008
 map:
   - config:rw
-
+image: "ghcr.io/jmservera/{arch}-addon-opendonita"
