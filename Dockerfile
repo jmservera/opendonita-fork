@@ -12,11 +12,17 @@ COPY init.py .
 COPY congaserver.py .
 COPY congaModules ./congaModules
 COPY html ./html
+# upnp 1.0.3 does not correctly work with python3.10
+COPY patch/HTTP.py /usr/lib/python3.10/site-packages/upnp/HTTP.py
 
 # Web server
 EXPOSE 80
 # Robot server
 EXPOSE 20008
+# upnp
+EXPOSE 1900/udp
+EXPOSE 5000
+
 
 # Use unbuffered output for the logs
-CMD ["python3","-u", "congaserver.py", "80", "20008","true"]
+CMD ["python3", "congaserver.py", "80", "20008", "true", "true"]
