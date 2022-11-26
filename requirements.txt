@@ -1,0 +1,2 @@
+iot-upnp==1.0.3
+Pillow==9.3.0
