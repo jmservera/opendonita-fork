@@ -1,6 +1,6 @@
 name: "Open Doñita"
 description: "The Open Doñita server for managing your Cecotec Conga"
-version: "0.3.8"
+version: "0.3.9"
 slug: "opendonita"
 url: https://github.com/jmservera/opendonita-fork
 stage: experimental
@@ -17,6 +17,13 @@ panel_icon: mdi:robot-vacuum
 ports:
   80/tcp: 80
   20008/tcp: 20008
+  5000/tcp: 5000
+  1900/udp: null
+ports_description:
+  80/tcp: "Web interface"
+  20008/tcp: "Robot control"
+  5000/tcp: "SSDP xml descriptors"
+  1900/udp: "SSDP discovery"
 map:
   - config:rw
 image: "ghcr.io/jmservera/{arch}-addon-opendonita"
